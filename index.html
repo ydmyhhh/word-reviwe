@@ -174,8 +174,27 @@
   .char-stage.mood-super .char-video{height:106.5%;bottom:-3.11%}
   .char-stage.playing .char-video{display:block}
   .char-stage.playing img.base{visibility:hidden}
+  /* iOS 等不支持 VP9 透明通道的浏览器，改用动图 WebP，避免出现黑底 */
+  .char-webp{position:absolute;left:50%;width:auto;height:110%;bottom:-4%;
+    transform:translateX(-50%);display:none;pointer-events:none}
+  .char-stage.mood-angry .char-webp{height:107.6%;bottom:-3.03%}
+  .char-stage.mood-happy .char-webp{height:109.2%;bottom:-2.22%}
+  .char-stage.mood-super .char-webp{height:106.5%;bottom:-3.11%}
+  body.webp-mode .char-stage.playing .char-webp{display:block}
+  body.webp-mode .char-stage.playing .char-video{display:none}
   /* 角色保持原始外观，不做表情或肢体变化 */
   .char-inner{transform:none !important;animation:none !important}
+
+  /* ===== 手机适配 ===== */
+  @media (max-width:480px){
+    #app{padding:14px 12px 210px}
+    .char-hero{width:min(252px,74vw)}
+    .char-float{width:96px;right:6px;bottom:calc(78px + env(safe-area-inset-bottom,0px))}
+    .char-float .bubble{max-width:142px;font-size:12px;padding:8px 11px}
+    .back{width:52px;height:52px;font-size:22px;bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+    h1.title{font-size:22px}
+    .brand{font-size:19px}
+  }
 </style>
 </head>
 <body>
@@ -198,6 +217,7 @@
         <div class="char-inner">
           <img class="base" src="character2.png" alt="" draggable="false" />
           <video class="char-video" data-video muted playsinline preload="auto"></video>
+          <img class="char-webp" data-webp alt="" draggable="false" />
         </div>
       </div>
     </div>
@@ -338,6 +358,7 @@
     <div class="char-inner">
       <img class="base" src="character2.png" alt="" draggable="false" />
       <video class="char-video" data-video muted playsinline preload="auto"></video>
+      <img class="char-webp" data-webp alt="" draggable="false" />
     </div>
   </div>
 </div>
@@ -410,6 +431,18 @@ function getMood(){
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
 const MOOD_VIDEOS = { angry:'video2.webm', happy:'video1.webm', super:'video3.webm' };
+/* iOS 的 WebKit 不支持 VP9 透明通道（会渲染成黑底），改用带 alpha 的动图 WebP */
+const MOOD_WEBP = { angry:'video2.webp', happy:'video1.webp', super:'video3.webp' };
+const PAT_MS = 4050;   /* 97 帧 × 41ms，动画时长 */
+
+const USE_WEBP = (function(){
+  const iOS=/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  if(iOS) return true;
+  const v=document.createElement('video');
+  return !v.canPlayType('video/webm; codecs="vp9"');
+})();
+if(USE_WEBP) document.body.classList.add('webp-mode');
 
 function renderCharacter(){
   const x=getReviewedToday();
@@ -418,13 +451,19 @@ function renderCharacter(){
     el.classList.remove('mood-angry','mood-happy','mood-super');
     el.classList.add('mood-'+mood);
   });
-  document.querySelectorAll('[data-video]').forEach(v=>{
-    const src=MOOD_VIDEOS[mood];
-    if(!v.getAttribute('src') || !v.getAttribute('src').endsWith(src)){
-      v.src=src;
-      v.load();
-    }
-  });
+  if(USE_WEBP){
+    /* iOS 下预载当前心情的动图，拍下去立刻能播 */
+    const im=new Image();
+    im.src=MOOD_WEBP[mood];
+  } else {
+    document.querySelectorAll('[data-video]').forEach(v=>{
+      const src=MOOD_VIDEOS[mood];
+      if(!v.getAttribute('src') || !v.getAttribute('src').endsWith(src)){
+        v.src=src;
+        v.load();
+      }
+    });
+  }
   let text;
   if(mood==='angry') text=`今天才背了 ${x} 个单词，快给我大白饭！`;
   else if(mood==='happy') text=`今天已经背了 ${x} 个单词，继续加油呀～`;
@@ -454,6 +493,7 @@ function patPat(stage){
 
 /* 拍一拍后播放当前心情对应的透明背景视频动作，播完恢复静态 */
 function playPatAction(stage){
+  if(USE_WEBP){ playPatWebp(stage); return; }
   const video=stage.querySelector('[data-video]');
   if(!video) return;
   const src=MOOD_VIDEOS[getMood()];
@@ -472,6 +512,17 @@ function playPatAction(stage){
   clearTimeout(stage._patT);
   /* 兜底：若 ended 未触发，8 秒后恢复 */
   stage._patT=setTimeout(()=>stopPatAction(stage),8000);
+}
+
+/* 不支持透明视频时：用动图 WebP 播放一次，按时长恢复静态 */
+function playPatWebp(stage){
+  const el=stage.querySelector('[data-webp]');
+  if(!el) return;
+  stage.classList.add('playing');
+  /* 换新地址可强制从第一帧重新播放 */
+  el.src=MOOD_WEBP[getMood()]+'?t='+Date.now();
+  clearTimeout(stage._patT);
+  stage._patT=setTimeout(()=>stopPatAction(stage),PAT_MS);
 }
 
 function stopPatAction(stage){
