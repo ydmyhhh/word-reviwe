@@ -507,7 +507,7 @@ function playPatAction(stage){
   };
   video.onloadeddata=null;
   if(video.readyState>=2) start();
-  else { video.onloadeddata=start; video.load(); }
+  else { stage.classList.remove('playing'); video.onloadeddata=()=>{ stage.classList.add('playing'); start(); }; video.load(); }
   video.onended=()=>stopPatAction(stage);
   clearTimeout(stage._patT);
   /* 兜底：若 ended 未触发，8 秒后恢复 */
@@ -518,17 +518,28 @@ function playPatAction(stage){
 function playPatWebp(stage){
   const el=stage.querySelector('[data-webp]');
   if(!el) return;
-  stage.classList.add('playing');
-  /* 换新地址可强制从第一帧重新播放 */
-  el.src=MOOD_WEBP[getMood()]+'?t='+Date.now();
   clearTimeout(stage._patT);
-  stage._patT=setTimeout(()=>stopPatAction(stage),PAT_MS);
+  /* 先设置地址，等图片真正解码完成再切换，避免出现空白 */
+  const show=()=>{
+    stage.classList.add('playing');
+    stage._patT=setTimeout(()=>stopPatAction(stage),PAT_MS);
+  };
+  el.src=MOOD_WEBP[getMood()];
+  if(el.decode){
+    el.decode().then(show, ()=>{});
+  } else {
+    el.onload=()=>{ el.onload=null; show(); };
+    el.onerror=()=>{ el.onerror=null; };
+  }
 }
 
 function stopPatAction(stage){
   const video=stage.querySelector('[data-video]');
+  const webp=stage.querySelector('[data-webp]');
   clearTimeout(stage._patT);
   if(video){ video.pause(); video.onended=null; video.onloadeddata=null; }
+  /* 清空地址，下次点击才能从第一帧重新播放，同时不影响缓存 */
+  if(webp) webp.removeAttribute('src');
   stage.classList.remove('playing');
 }
 
