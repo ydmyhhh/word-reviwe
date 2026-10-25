@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#6d28d9" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="背单词Vibe" />
+<title>背单词 · Vibe（含艾宾浩斯复习）</title>
+<style>
+  :root{
+    --bg1:#0f172a; --bg2:#1e1b4b; --bg3:#312e81;
+    --card:rgba(255,255,255,0.08);
+    --card-border:rgba(255,255,255,0.15);
+    --text:#f1f5f9; --muted:#94a3b8;
+    --accent:#a78bfa; --accent2:#f0abfc; --accent3:#60a5fa;
+    --good:#34d399; --warn:#fbbf24; --bad:#f87171;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    color:var(--text);
+    background:linear-gradient(135deg,var(--bg1) 0%,var(--bg2) 50%,var(--bg3) 100%);
+    background-attachment:fixed;
+    min-height:100vh;overflow-x:hidden;
+  }
+  #bg-layer{position:fixed;inset:0;z-index:0;background-size:cover;background-position:center;background-repeat:no-repeat;pointer-events:none}
+  #bg-layer .scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,10,30,0.55),rgba(8,10,30,0.42));opacity:0;transition:opacity .4s}
+  body.has-bg #bg-layer .scrim{opacity:1}
+  #app{max-width:640px;margin:0 auto;padding:20px 16px 200px;position:relative;z-index:2}
+  .view{display:none;animation:fade .28s ease}
+  .view.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .brand{font-size:22px;font-weight:700;letter-spacing:1px;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .back,.icon-btn{background:var(--card);border:1px solid var(--card-border);color:var(--text);
+    width:42px;height:42px;border-radius:12px;font-size:20px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:transform .15s}
+  .back:active,.icon-btn:active{transform:scale(0.9)}
+  h1.title{font-size:26px;margin:8px 0 4px;font-weight:800}
+  .subtitle{color:var(--muted);margin-bottom:18px;font-size:14px}
+
+  .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px}
+  .stat{background:var(--card);border:1px solid var(--card-border);border-radius:16px;padding:14px 12px;
+    backdrop-filter:blur(10px);text-align:center}
+  .stat .label{color:var(--muted);font-size:12px}
+  .stat .num{font-size:26px;font-weight:800;margin-top:4px;
+    background:linear-gradient(90deg,var(--accent3),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
+
+  .btn-group{display:flex;flex-direction:column;gap:14px}
+  .btn{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#1a0933;border:none;border-radius:16px;padding:18px;
+    font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(167,139,250,0.3);
+    transition:transform .12s, box-shadow .2s;font-family:inherit
+  }
+  .btn:active{transform:scale(0.97)}
+  .btn.ghost{background:var(--card);color:var(--text);box-shadow:none;border:1px solid var(--card-border)}
+  .btn.blue{background:linear-gradient(135deg,var(--accent3),var(--accent))}
+  .btn.pink{background:linear-gradient(135deg,var(--accent2),#fb7185)}
+  .btn.green{background:linear-gradient(135deg,var(--good),#10b981);color:#052e2b}
+  .btn.sm{padding:12px;font-size:15px;width:auto;border-radius:12px}
+  .btn.full{width:100%}
+
+  .card{background:var(--card);border:1px solid var(--card-border);border-radius:18px;padding:18px;
+    backdrop-filter:blur(10px);margin-bottom:14px}
+  label{display:block;color:var(--muted);font-size:13px;margin-bottom:6px}
+  input[type=text],input[type=date],textarea{
+    width:100%;background:rgba(0,0,0,0.25);border:1px solid var(--card-border);
+    color:var(--text);border-radius:12px;padding:14px;font-size:16px;font-family:inherit;outline:none;
+    transition:border-color .15s
+  }
+  input:focus,textarea:focus{border-color:var(--accent)}
+  textarea{resize:vertical;min-height:60px}
+  .field{margin-bottom:14px}
+
+  .session-head{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;margin-bottom:10px}
+  .word-card{
+    background:linear-gradient(160deg,rgba(167,139,250,0.18),rgba(96,165,250,0.12));
+    border:1px solid var(--card-border);border-radius:24px;padding:40px 22px;
+    text-align:center;min-height:250px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    margin:10px 0 20px;cursor:pointer;user-select:none;transition:transform .15s
+  }
+  .word-card:active{transform:scale(0.98)}
+  .word-card .word{font-size:38px;font-weight:800;word-break:break-word;margin-bottom:12px}
+  .word-card .meaning{font-size:18px;color:var(--muted);min-height:24px}
+  .word-card .hint{margin-top:14px;font-size:12px;color:var(--muted);opacity:0.6}
+  .progress{height:8px;background:rgba(255,255,255,0.1);border-radius:999px;overflow:hidden;margin:6px 0 16px}
+  .progress>div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:999px;transition:width .3s}
+
+  .rate-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}
+  .rate{padding:16px 8px;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;
+    font-family:inherit;transition:transform .12s}
+  .rate:active{transform:scale(0.95)}
+  .rate.good{background:linear-gradient(135deg,var(--good),#10b981);color:#052e2b}
+  .rate.warn{background:linear-gradient(135deg,var(--warn),#f59e0b);color:#3a2400}
+  .rate.bad{background:linear-gradient(135deg,var(--bad),#ef4444);color:#3a0a0a}
+
+  .range-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .word-list{max-height:50vh;overflow-y:auto;padding-right:4px}
+  .word-item{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;
+    background:rgba(0,0,0,0.2);border:1px solid var(--card-border);border-radius:12px;margin-bottom:8px}
+  .word-item .w{font-weight:700;font-size:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .word-item .m{color:var(--muted);font-size:13px;margin-top:2px}
+  .word-item .meta{color:var(--muted);font-size:12px;text-align:right;line-height:1.5}
+  .lvl{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700}
+  .lvl-0{background:rgba(248,113,113,0.2);color:var(--bad)}
+  .lvl-1,.lvl-2{background:rgba(251,191,36,0.2);color:var(--warn)}
+  .lvl-3,.lvl-4{background:rgba(96,165,250,0.2);color:var(--accent3)}
+  .lvl-5,.lvl-6{background:rgba(52,211,153,0.2);color:var(--good)}
+  .muted{color:var(--muted)}
+  .empty{text-align:center;padding:40px 20px;color:var(--muted)}
+  .toast{position:fixed;bottom:150px;left:50%;transform:translateX(-50%);
+    background:rgba(15,23,42,0.94);border:1px solid var(--card-border);color:var(--text);
+    padding:12px 22px;border-radius:999px;font-size:14px;z-index:120;opacity:0;pointer-events:none;
+    transition:opacity .25s, transform .25s}
+  .toast.show{opacity:1;transform:translate(-50%,-6px)}
+  .chip{display:inline-block;background:rgba(167,139,250,0.18);color:var(--accent);
+    padding:3px 10px;border-radius:999px;font-size:12px;margin-top:6px}
+  .eb-legend{font-size:12px;color:var(--muted);line-height:1.8;margin-top:10px}
+  .eb-legend b{color:var(--text)}
+
+  /* ============ 角色舞台 ============ */
+  .char-hero{width:252px;margin:0 auto 14px;position:relative}
+  .char-hero .bubble{margin:0 auto 2px;text-align:center}
+  .hero-caption{text-align:center;font-size:12px;color:var(--muted);margin-bottom:16px}
+  .char-float{position:fixed;right:8px;bottom:72px;width:128px;z-index:80;
+    display:flex;flex-direction:column;align-items:flex-end;pointer-events:none}
+  body.is-home .char-float{display:none}
+
+  .bubble{
+    pointer-events:auto;
+    background:rgba(255,255,255,0.97);color:#1a0933;
+    padding:10px 14px;border-radius:16px;font-size:14px;font-weight:700;
+    max-width:210px;line-height:1.45;
+    box-shadow:0 8px 20px rgba(0,0,0,0.28);
+    position:relative;margin-bottom:10px;
+    animation:bubbleIn .3s ease;
+  }
+  .bubble::after{
+    content:"";position:absolute;left:50%;bottom:-8px;margin-left:-8px;
+    border:8px solid transparent;border-top-color:rgba(255,255,255,0.97);
+  }
+  .char-float .bubble{max-width:174px;font-size:13px;margin-bottom:8px}
+  .bubble.super{background:linear-gradient(135deg,#fff7d6,#ffe9a8);color:#5a3a00}
+
+  .char-stage{position:relative;width:100%;aspect-ratio:1086/1136;cursor:pointer;
+    user-select:none;-webkit-user-select:none;pointer-events:auto;
+    filter:drop-shadow(0 12px 18px rgba(0,0,0,0.45));
+    transition:filter .3s}
+  .char-stage .aura{position:absolute;inset:-12%;border-radius:50%;z-index:0;
+    background:radial-gradient(circle,rgba(167,139,250,0.22),transparent 68%);
+    transition:background .4s}
+  .mood-angry .aura{background:radial-gradient(circle,rgba(248,113,113,0.30),transparent 68%)}
+  .mood-super .aura{background:radial-gradient(circle,rgba(251,191,36,0.34),transparent 68%)}
+
+  .char-inner{position:absolute;inset:0;z-index:1;transform-origin:50% 97%;will-change:transform}
+  .char-inner img.base{width:100%;height:100%;display:block;object-fit:contain}
+  .patch{position:absolute;inset:0;background-image:url("character.png");
+    background-size:100% 100%;background-repeat:no-repeat;will-change:transform}
+  /* 左臂（画面左）：含袖口与手 */
+  .patch.arm-l{clip-path:inset(54.5% 66% 31% 23.5%);transform-origin:33% 56.5%}
+  /* 右臂（画面右） */
+  .patch.arm-r{clip-path:inset(54.5% 44.5% 31% 45.5%);transform-origin:47% 56.5%}
+  /* 双腿与鞋 */
+  .patch.legs{clip-path:inset(87.5% 43% 1% 38%);transform-origin:47.5% 88%}
+
+  /* 角色保持原始外观，不做表情或肢体变化 */
+  .char-inner,.patch{transform:none !important;animation:none !important}
+</style>
+</head>
+<body>
+<div id="bg-layer"><div class="scrim"></div></div>
+<input type="file" id="bg-input" accept="image/*" style="display:none" />
+
+<div id="app">
+
+  <!-- 主页 -->
+  <section class="view active" id="view-home">
+    <div class="topbar">
+      <div class="brand">✨ 背单词 Vibe</div>
+      <button class="icon-btn" onclick="document.getElementById('bg-input').click()" title="更换背景">🖼️</button>
+    </div>
+
+    <div class="char-hero" id="char-hero">
+      <div class="bubble" data-bubble>今天已经背了 0 个单词</div>
+      <div class="char-stage mood-angry" data-char>
+        <div class="aura"></div>
+        <div class="char-inner">
+          <img class="base" src="character.png" alt="小鲸鱼女仆" draggable="false" />
+          <div class="patch arm-l"></div>
+          <div class="patch arm-r"></div>
+          <div class="patch legs"></div>
+        </div>
+      </div>
+    </div>
+    <div class="hero-caption">点一点她，可以拍一拍</div>
+
+    <div class="stats">
+      <div class="stat"><div class="label">今日单词</div><div class="num" id="todayCount">0</div></div>
+      <div class="stat"><div class="label">今日待复习</div><div class="num" id="dueCount">0</div></div>
+      <div class="stat"><div class="label">单词库总量</div><div class="num" id="libCount">0</div></div>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn" onclick="go('view-save')">➕ 存单词</button>
+      <button class="btn blue" onclick="go('view-memorize-menu')">🎯 开始背单词</button>
+      <button class="btn pink" onclick="openLibrary()">📚 单词库</button>
+      <button class="btn ghost" onclick="document.getElementById('bg-input').click()">🖼️ 更换 App 背景</button>
+    </div>
+
+    <div class="eb-legend" style="margin-top:22px">
+      <b>🧠 艾宾浩斯遗忘曲线</b>：新存单词会自动进入"今日待复习"。复习时按 记得 / 模糊 / 忘记 自动安排下次复习日（1→2→4→7→15→30 天）。
+      <br><b>👧 小鲸鱼女仆</b>会跟着你的进度变心情：不到 20 个会生气，20 到 60 个开心，超过 60 个超级开心。
+    </div>
+  </section>
+
+  <!-- 存单词 -->
+  <section class="view" id="view-save">
+    <div class="topbar">
+      <div class="brand">存单词</div>
+      <button class="back" onclick="go('view-home')">←</button>
+    </div>
+    <div class="card">
+      <div class="field">
+        <label>单词 *</label>
+        <input type="text" id="input-word" placeholder="例如：serendipity" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>释义（可选，记忆时可查看）</label>
+        <textarea id="input-meaning" placeholder="意外发现美好事物的能力"></textarea>
+      </div>
+      <button class="btn full" onclick="saveWord()">保存到单词库</button>
+      <div class="chip" id="save-hint" style="display:none">已存入，自动加入「今日待复习」</div>
+    </div>
+  </section>
+
+  <!-- 背单词菜单 -->
+  <section class="view" id="view-memorize-menu">
+    <div class="topbar">
+      <div class="brand">开始背单词</div>
+      <button class="back" onclick="go('view-home')">←</button>
+    </div>
+    <p class="subtitle">选择要复习的范围：</p>
+    <div class="btn-group">
+      <button class="btn" onclick="startMemorize('today')">🌞 今日单词</button>
+      <button class="btn blue" onclick="startMemorize('all')">🗓 历史单词</button>
+      <button class="btn green" onclick="startMemorize('eb')">🧠 艾宾浩斯复习</button>
+    </div>
+    <div class="eb-legend">
+      艾宾浩斯模式会给出 <b>记得 / 模糊 / 忘记</b> 三个按钮，按遗忘曲线自动安排每个单词的下次复习时间。
+    </div>
+  </section>
+
+  <!-- 背单词会话 -->
+  <section class="view" id="view-session">
+    <div class="topbar">
+      <div class="brand" id="session-title">复习中</div>
+      <button class="back" onclick="endSession()">←</button>
+    </div>
+    <div class="session-head">
+      <span id="session-progress">0 / 0</span>
+      <span>第 <b id="session-round">1</b> 遍</span>
+    </div>
+    <div class="progress"><div id="session-bar" style="width:0%"></div></div>
+
+    <div class="word-card" onclick="toggleMeaning()">
+      <div id="session-level"></div>
+      <div class="word" id="session-word">—</div>
+      <div class="meaning" id="session-meaning"></div>
+      <div class="hint" id="session-hint">点一下卡片查看释义</div>
+    </div>
+
+    <div id="rate-area" style="display:none">
+      <div class="rate-row">
+        <button class="rate good" onclick="rateWord('good')">记得 ✓</button>
+        <button class="rate warn" onclick="rateWord('fuzzy')">模糊 ~</button>
+        <button class="rate bad" onclick="rateWord('forget')">忘记 ✗</button>
+      </div>
+    </div>
+
+    <div id="normal-area" style="display:none">
+      <div class="btn-group">
+        <button class="btn" onclick="nextWord()">下一个 →</button>
+        <button class="btn ghost" onclick="shuffleCurrentRound()">🔀 打乱当前遍顺序</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 单词库 -->
+  <section class="view" id="view-library">
+    <div class="topbar">
+      <div class="brand">单词库</div>
+      <button class="back" onclick="go('view-home')">←</button>
+    </div>
+
+    <div class="card">
+      <label>选择时间段（按日）</label>
+      <div class="range-row">
+        <div class="field"><input type="date" id="range-start" /></div>
+        <div class="field"><input type="date" id="range-end" /></div>
+      </div>
+      <button class="btn sm" onclick="applyRange()">应用筛选</button>
+      <div class="muted" style="margin-top:8px;font-size:13px">当前范围内：<b id="range-count">0</b> 个单词</div>
+      <div style="margin-top:14px">
+        <button class="btn full" onclick="startReview()">🚀 开始复习所选时间段单词</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <b>单词列表</b>
+        <button class="btn sm ghost" onclick="deleteAllWords()" style="padding:6px 12px;font-size:13px">清空单词库</button>
+      </div>
+      <div class="eb-legend" style="margin-bottom:10px">
+        等级：<span class="lvl lvl-0">L0</span> 新学
+        <span class="lvl lvl-1">L1-L2</span> 初学
+        <span class="lvl lvl-3">L3-L4</span> 巩固
+        <span class="lvl lvl-5">L5-L6</span> 已掌握
+      </div>
+      <div class="word-list" id="word-list"></div>
+    </div>
+  </section>
+
+</div>
+
+<!-- 右下角常驻角色 -->
+<div class="char-float" id="char-float">
+  <div class="bubble" data-bubble>今天已经背了 0 个单词</div>
+  <div class="char-stage mood-angry" data-char>
+    <div class="aura"></div>
+    <div class="char-inner">
+      <img class="base" src="character.png" alt="小鲸鱼女仆" draggable="false" />
+      <div class="patch arm-l"></div>
+      <div class="patch arm-r"></div>
+      <div class="patch legs"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================== 艾宾浩斯配置 ================== */
+const EB_INTERVALS = [0, 1, 2, 4, 7, 15, 30];
+const EB_MAX_LEVEL = EB_INTERVALS.length - 1;
+
+/* ================== 存储 ================== */
+const STORE = 'vibe_words_v3';
+const REVIEW_STORE = 'vibe_reviewed_today';
+const BG_STORE = 'vibe_bg_image';
+
+function loadWords(){
+  try{ return JSON.parse(localStorage.getItem(STORE)) || []; }
+  catch(e){ return []; }
+}
+function saveWords(arr){ localStorage.setItem(STORE, JSON.stringify(arr)); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+function todayStr(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function dateStr(ts){
+  const d=new Date(ts);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function addDays(dateStr, days){
+  const [y,m,d]=dateStr.split('-').map(Number);
+  const dt=new Date(y, m-1, d);
+  dt.setDate(dt.getDate()+days);
+  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+}
+
+/* ================== 今日已背计数 ================== */
+function getReviewedToday(){
+  try{
+    const data=JSON.parse(localStorage.getItem(REVIEW_STORE)||'{}');
+    if(data.date===todayStr()) return data.count||0;
+  }catch(e){}
+  return 0;
+}
+function incReviewed(n){
+  let count=0;
+  try{
+    const old=JSON.parse(localStorage.getItem(REVIEW_STORE)||'{}');
+    if(old.date===todayStr()) count=old.count||0;
+  }catch(e){}
+  count+=n;
+  localStorage.setItem(REVIEW_STORE, JSON.stringify({date:todayStr(), count:count}));
+  renderCharacter();
+}
+
+/* ================== 角色 ================== */
+const MOOD_MSGS = {
+  angry:['快给我大白饭！','还不背单词？我饿扁了！','再不背就不理你了哼！','今天才这么点，我好饿…'],
+  happy:['今天背得不错哦～','继续加油，我陪着你！','你真棒，再来几个！','嘿嘿，看到你进步啦～'],
+  super:['哇！你今天太厉害了！','背这么多，给你一个大大的赞！','我好开心呀，继续冲！','你简直是背单词之神！']
+};
+function getMood(){
+  const x=getReviewedToday();
+  if(x<20) return 'angry';
+  if(x<=60) return 'happy';
+  return 'super';
+}
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+function renderCharacter(){
+  const x=getReviewedToday();
+  const mood=getMood();
+  document.querySelectorAll('[data-char]').forEach(el=>{
+    el.classList.remove('mood-angry','mood-happy','mood-super');
+    el.classList.add('mood-'+mood);
+  });
+  let text;
+  if(mood==='angry') text=`今天才背了 ${x} 个单词，快给我大白饭！`;
+  else if(mood==='happy') text=`今天已经背了 ${x} 个单词，继续加油呀～`;
+  else text=`今天已经背了 ${x} 个单词，你太厉害啦！`;
+  document.querySelectorAll('[data-bubble]').forEach(b=>{
+    b.textContent=text;
+    b.classList.toggle('super', mood==='super');
+  });
+}
+
+function patPat(stage){
+  const mood=getMood();
+  const box=stage.closest('.char-hero')||stage.closest('.char-float');
+  const bubble=box?box.querySelector('[data-bubble]'):null;
+  if(bubble){
+    bubble.textContent = mood==='super'
+      ? pick(['嘿嘿，你拍我啦！','再拍一下嘛～','好痒呀～','喜欢你拍我 ❤️'])
+      : mood==='happy'
+      ? pick(['谢谢你拍我～','嘿嘿～','再背几个就更好啦！'])
+      : pick(['拍我也没用，快去背单词！','哼，大白饭呢？','别摸鱼啦！']);
+    setTimeout(renderCharacter,1900);
+  }
+}
+
+/* ================== 背景 ================== */
+document.getElementById('bg-input').addEventListener('change', function(e){
+  const file=e.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      const maxW=1280;
+      let w=img.width,h=img.height;
+      if(w>maxW){ h=Math.round(h*maxW/w); w=maxW; }
+      const canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      const dataUrl=canvas.toDataURL('image/jpeg',0.8);
+      try{
+        localStorage.setItem(BG_STORE, dataUrl);
+        applyBackground();
+        toast('背景已更换 ✨');
+      }catch(err){
+        toast('图片太大，换一张小一点的');
+      }
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+  e.target.value='';
+});
+function applyBackground(){
+  const bg=localStorage.getItem(BG_STORE);
+  const layer=document.getElementById('bg-layer');
+  if(bg){
+    layer.style.backgroundImage=`url(${bg})`;
+    document.body.classList.add('has-bg');
+  } else {
+    layer.style.backgroundImage='';
+    document.body.classList.remove('has-bg');
+  }
+}
+
+/* ================== 视图 ================== */
+function go(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.body.classList.toggle('is-home', id==='view-home');
+  if(id==='view-home') refreshHome();
+  window.scrollTo(0,0);
+  renderCharacter();
+}
+
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t=setTimeout(()=>t.classList.remove('show'),1800);
+}
+
+/* ================== 主页 ================== */
+function refreshHome(){
+  const words=loadWords();
+  const today=todayStr();
+  document.getElementById('todayCount').textContent=words.filter(w=>dateStr(w.createdAt)===today).length;
+  document.getElementById('dueCount').textContent=words.filter(w=>(w.nextReviewDate||today)<=today).length;
+  document.getElementById('libCount').textContent=words.length;
+}
+
+/* ================== 存单词 ================== */
+function saveWord(){
+  const w=document.getElementById('input-word').value.trim();
+  const m=document.getElementById('input-meaning').value.trim();
+  if(!w){ toast('请输入单词'); return; }
+  const words=loadWords();
+  words.unshift({
+    id:uid(), word:w, meaning:m, createdAt:Date.now(),
+    level:0, reviewCount:0, lastReviewDate:'', nextReviewDate:todayStr()
+  });
+  saveWords(words);
+  document.getElementById('input-word').value='';
+  document.getElementById('input-meaning').value='';
+  document.getElementById('save-hint').style.display='inline-block';
+  setTimeout(()=>document.getElementById('save-hint').style.display='none',2500);
+  toast('已存入单词库');
+  refreshHome();
+  renderCharacter();
+}
+
+/* ================== 会话 ================== */
+let session={ words:[], order:[], index:0, round:1, title:'', mode:'normal' };
+
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function startMemorize(mode){
+  const words=loadWords();
+  const today=todayStr();
+  let pool, title;
+  if(mode==='today'){
+    pool=words.filter(w=>dateStr(w.createdAt)===today);
+    title='今日单词';
+  } else if(mode==='all'){
+    pool=words;
+    title='历史单词';
+  } else {
+    pool=words.filter(w=>(w.nextReviewDate||today)<=today);
+    title='艾宾浩斯复习';
+  }
+  if(pool.length===0){
+    toast(mode==='eb'?'今天没有待复习的单词，去存几个新单词吧':'还没有单词哦，先去存几个吧');
+    return;
+  }
+  session={words:pool, order:shuffle(pool), index:0, round:1, mode:mode, title:title};
+  document.getElementById('session-title').textContent=title;
+  document.getElementById('rate-area').style.display = (mode==='eb')?'block':'none';
+  document.getElementById('normal-area').style.display = (mode==='eb')?'none':'block';
+  document.getElementById('session-hint').textContent = (mode==='eb')
+    ? '点卡片看释义，再选择记得程度' : '点一下卡片查看释义';
+  go('view-session');
+  renderWord();
+}
+
+function renderWord(){
+  const cur=session.order[session.index];
+  document.getElementById('session-word').textContent=cur.word;
+  const me=document.getElementById('session-meaning');
+  me.textContent='';
+  me.dataset.full=cur.meaning||'';
+  document.getElementById('session-round').textContent=session.round;
+  document.getElementById('session-progress').textContent=`${session.index+1} / ${session.order.length}`;
+  document.getElementById('session-bar').style.width=`${(session.index+1)/session.order.length*100}%`;
+  const lvlEl=document.getElementById('session-level');
+  if(session.mode==='eb'){
+    const lv=cur.level||0;
+    lvlEl.innerHTML=`<span class="lvl lvl-${lv}">等级 ${lv} · 下次间隔 ${EB_INTERVALS[lv]||0} 天</span>`;
+  } else {
+    lvlEl.innerHTML='';
+  }
+}
+
+function toggleMeaning(){
+  const me=document.getElementById('session-meaning');
+  me.textContent = me.textContent ? '' : (me.dataset.full||'（没有释义）');
+}
+
+function nextWord(){
+  session.index++;
+  incReviewed(1);
+  if(session.index>=session.order.length){
+    session.round++;
+    session.order=shuffle(session.words);
+    session.index=0;
+    toast(`第 ${session.round} 遍开始，继续加油 💪`);
+  }
+  renderWord();
+}
+
+function shuffleCurrentRound(){
+  const curId=session.order[session.index]?.id;
+  session.order=shuffle(session.words);
+  if(curId){
+    const idx=session.order.findIndex(w=>w.id===curId);
+    if(idx>=0){ session.order.unshift(session.order.splice(idx,1)[0]); session.index=0; }
+  }
+  renderWord();
+  toast('已重新打乱');
+}
+
+/* ================== 艾宾浩斯评分 ================== */
+function rateWord(result){
+  const cur=session.order[session.index];
+  const today=todayStr();
+  const words=loadWords();
+  const target=words.find(w=>w.id===cur.id);
+  if(!target){ nextWord(); return; }
+
+  if(target.level==null) target.level=0;
+  if(target.reviewCount==null) target.reviewCount=0;
+
+  let newLevel=target.level, interval, msg;
+  if(result==='good'){
+    newLevel=Math.min(target.level+1, EB_MAX_LEVEL);
+    interval=EB_INTERVALS[newLevel];
+    msg=`记得 → 等级 ${target.level}→${newLevel}，${interval} 天后复习`;
+  } else if(result==='fuzzy'){
+    interval=Math.max(1, Math.floor((EB_INTERVALS[target.level]||1)/2));
+    msg=`模糊 → 等级不变(${target.level})，${interval} 天后复习`;
+  } else {
+    newLevel=0;
+    interval=EB_INTERVALS[0];
+    msg='忘记 → 等级归零，今天再复习一次';
+  }
+
+  target.level=newLevel;
+  target.reviewCount+=1;
+  target.lastReviewDate=today;
+  target.nextReviewDate=addDays(today, interval);
+  saveWords(words);
+
+  cur.level=newLevel;
+  cur.reviewCount=target.reviewCount;
+  cur.nextReviewDate=target.nextReviewDate;
+
+  toast(msg);
+  nextWord();
+}
+
+function endSession(){
+  session={words:[], order:[], index:0, round:1, title:'', mode:'normal'};
+  go('view-memorize-menu');
+}
+
+/* ================== 单词库 ================== */
+function openLibrary(){
+  const s=document.getElementById('range-start');
+  const e=document.getElementById('range-end');
+  const words=loadWords();
+  if(words.length){
+    const dates=words.map(w=>dateStr(w.createdAt)).sort();
+    s.value=dates[0];
+    e.value=dates[dates.length-1];
+  } else {
+    s.value=todayStr(); e.value=todayStr();
+  }
+  renderLibrary();
+  go('view-library');
+}
+
+function getRangeWords(){
+  const words=loadWords();
+  const s=document.getElementById('range-start').value;
+  const e=document.getElementById('range-end').value;
+  if(!s||!e) return words;
+  return words.filter(w=>{
+    const d=dateStr(w.createdAt);
+    return d>=s && d<=e;
+  });
+}
+
+function applyRange(){ renderLibrary(); }
+
+function renderLibrary(){
+  const arr=getRangeWords().sort((a,b)=>b.createdAt-a.createdAt);
+  document.getElementById('range-count').textContent=arr.length;
+  const list=document.getElementById('word-list');
+  if(arr.length===0){
+    list.innerHTML='<div class="empty">该时间段没有单词</div>';
+    return;
+  }
+  list.innerHTML=arr.map(w=>{
+    const lv=w.level||0;
+    return `
+      <div class="word-item">
+        <div>
+          <div class="w">${escapeHtml(w.word)}<span class="lvl lvl-${lv}">L${lv}</span></div>
+          <div class="m">${escapeHtml(w.meaning||'—')}</div>
+        </div>
+        <div class="meta">
+          <div>存入 ${dateStr(w.createdAt)}</div>
+          <div>复习 ${w.reviewCount||0} 次</div>
+          <div>下次 ${w.nextReviewDate||todayStr()}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function escapeHtml(s){
+  const d=document.createElement('div');d.textContent=s;return d.innerHTML;
+}
+
+function startReview(){
+  const arr=getRangeWords();
+  if(arr.length===0){ toast('所选时间段没有单词'); return; }
+  session={words:arr, order:shuffle(arr), index:0, round:1, mode:'normal', title:`复习 ${arr.length} 个单词`};
+  document.getElementById('session-title').textContent=session.title;
+  document.getElementById('rate-area').style.display='none';
+  document.getElementById('normal-area').style.display='block';
+  document.getElementById('session-hint').textContent='点一下卡片查看释义';
+  go('view-session');
+  renderWord();
+}
+
+function deleteAllWords(){
+  if(!confirm('确定要清空整个单词库吗？此操作不可恢复。')) return;
+  saveWords([]);
+  refreshHome();
+  renderLibrary();
+  toast('单词库已清空');
+}
+
+/* ================== 绑定角色点击 ================== */
+document.querySelectorAll('[data-char]').forEach(el=>{
+  el.addEventListener('click', ()=>patPat(el));
+});
+
+/* ================== 启动 ================== */
+document.body.classList.add('is-home');
+applyBackground();
+refreshHome();
+renderCharacter();
+</script>
+</body>
+</html>
