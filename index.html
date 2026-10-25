@@ -39,7 +39,11 @@
   .back,.icon-btn{background:var(--card);border:1px solid var(--card-border);color:var(--text);
     width:42px;height:42px;border-radius:12px;font-size:20px;cursor:pointer;
     display:flex;align-items:center;justify-content:center;transition:transform .15s}
-  .back:active,.icon-btn:active{transform:scale(0.9)}
+  .back{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));
+    transform:translateX(-50%);z-index:110;width:56px;height:56px;border-radius:50%;
+    font-size:24px;box-shadow:0 10px 26px rgba(0,0,0,0.45)}
+  .back:active{transform:translateX(-50%) scale(0.9)}
+  .icon-btn:active{transform:scale(0.9)}
   h1.title{font-size:26px;margin:8px 0 4px;font-weight:800}
   .subtitle{color:var(--muted);margin-bottom:18px;font-size:14px}
 
@@ -159,18 +163,19 @@
   .mood-super .aura{background:radial-gradient(circle,rgba(251,191,36,0.34),transparent 68%)}
 
   .char-inner{position:absolute;inset:0;z-index:1;transform-origin:50% 97%;will-change:transform}
-  .char-inner img.base{width:100%;height:100%;display:block;object-fit:contain}
-  .patch{position:absolute;inset:0;background-image:url("character.png");
-    background-size:100% 100%;background-repeat:no-repeat;will-change:transform}
-  /* 左臂（画面左）：含袖口与手 */
-  .patch.arm-l{clip-path:inset(54.5% 66% 31% 23.5%);transform-origin:33% 56.5%}
-  /* 右臂（画面右） */
-  .patch.arm-r{clip-path:inset(54.5% 44.5% 31% 45.5%);transform-origin:47% 56.5%}
-  /* 双腿与鞋 */
-  .patch.legs{clip-path:inset(87.5% 43% 1% 38%);transform-origin:47.5% 88%}
+  .char-inner img.base{position:absolute;left:50%;bottom:0;height:100%;width:auto;
+    display:block;transform:translateX(-50%)}
 
+  /* 视频按角色实际占比放大，使播放时与静态图同高、脚底对齐 */
+  .char-video{position:absolute;left:50%;width:auto;height:110%;bottom:-4%;
+    transform:translateX(-50%);display:none;pointer-events:none;object-fit:contain}
+  .char-stage.mood-angry .char-video{height:107.6%;bottom:-3.03%}
+  .char-stage.mood-happy .char-video{height:109.2%;bottom:-2.22%}
+  .char-stage.mood-super .char-video{height:106.5%;bottom:-3.11%}
+  .char-stage.playing .char-video{display:block}
+  .char-stage.playing img.base{visibility:hidden}
   /* 角色保持原始外观，不做表情或肢体变化 */
-  .char-inner,.patch{transform:none !important;animation:none !important}
+  .char-inner{transform:none !important;animation:none !important}
 </style>
 </head>
 <body>
@@ -191,10 +196,8 @@
       <div class="char-stage mood-angry" data-char>
         <div class="aura"></div>
         <div class="char-inner">
-          <img class="base" src="character.png" alt="小鲸鱼女仆" draggable="false" />
-          <div class="patch arm-l"></div>
-          <div class="patch arm-r"></div>
-          <div class="patch legs"></div>
+          <img class="base" src="character2.png" alt="" draggable="false" />
+          <video class="char-video" data-video muted playsinline preload="auto"></video>
         </div>
       </div>
     </div>
@@ -215,7 +218,6 @@
 
     <div class="eb-legend" style="margin-top:22px">
       <b>🧠 艾宾浩斯遗忘曲线</b>：新存单词会自动进入"今日待复习"。复习时按 记得 / 模糊 / 忘记 自动安排下次复习日（1→2→4→7→15→30 天）。
-      <br><b>👧 小鲸鱼女仆</b>会跟着你的进度变心情：不到 20 个会生气，20 到 60 个开心，超过 60 个超级开心。
     </div>
   </section>
 
@@ -334,10 +336,8 @@
   <div class="char-stage mood-angry" data-char>
     <div class="aura"></div>
     <div class="char-inner">
-      <img class="base" src="character.png" alt="小鲸鱼女仆" draggable="false" />
-      <div class="patch arm-l"></div>
-      <div class="patch arm-r"></div>
-      <div class="patch legs"></div>
+      <img class="base" src="character2.png" alt="" draggable="false" />
+      <video class="char-video" data-video muted playsinline preload="auto"></video>
     </div>
   </div>
 </div>
@@ -404,10 +404,12 @@ const MOOD_MSGS = {
 function getMood(){
   const x=getReviewedToday();
   if(x<20) return 'angry';
-  if(x<=60) return 'happy';
+  if(x<40) return 'happy';
   return 'super';
 }
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+const MOOD_VIDEOS = { angry:'video2.webm', happy:'video1.webm', super:'video3.webm' };
 
 function renderCharacter(){
   const x=getReviewedToday();
@@ -415,6 +417,13 @@ function renderCharacter(){
   document.querySelectorAll('[data-char]').forEach(el=>{
     el.classList.remove('mood-angry','mood-happy','mood-super');
     el.classList.add('mood-'+mood);
+  });
+  document.querySelectorAll('[data-video]').forEach(v=>{
+    const src=MOOD_VIDEOS[mood];
+    if(!v.getAttribute('src') || !v.getAttribute('src').endsWith(src)){
+      v.src=src;
+      v.load();
+    }
   });
   let text;
   if(mood==='angry') text=`今天才背了 ${x} 个单词，快给我大白饭！`;
@@ -436,8 +445,40 @@ function patPat(stage){
       : mood==='happy'
       ? pick(['谢谢你拍我～','嘿嘿～','再背几个就更好啦！'])
       : pick(['拍我也没用，快去背单词！','哼，大白饭呢？','别摸鱼啦！']);
-    setTimeout(renderCharacter,1900);
+    /* 特殊台词显示 3 秒后恢复 */
+    clearTimeout(box._txtT);
+    box._txtT=setTimeout(renderCharacter,3000);
   }
+  playPatAction(stage);
+}
+
+/* 拍一拍后播放当前心情对应的透明背景视频动作，播完恢复静态 */
+function playPatAction(stage){
+  const video=stage.querySelector('[data-video]');
+  if(!video) return;
+  const src=MOOD_VIDEOS[getMood()];
+  if(!video.getAttribute('src') || !video.getAttribute('src').endsWith(src)){
+    video.src=src;
+  }
+  stage.classList.add('playing');
+  const start=()=>{
+    video.currentTime=0;
+    video.play().catch(()=>{ stopPatAction(stage); });
+  };
+  video.onloadeddata=null;
+  if(video.readyState>=2) start();
+  else { video.onloadeddata=start; video.load(); }
+  video.onended=()=>stopPatAction(stage);
+  clearTimeout(stage._patT);
+  /* 兜底：若 ended 未触发，8 秒后恢复 */
+  stage._patT=setTimeout(()=>stopPatAction(stage),8000);
+}
+
+function stopPatAction(stage){
+  const video=stage.querySelector('[data-video]');
+  clearTimeout(stage._patT);
+  if(video){ video.pause(); video.onended=null; video.onloadeddata=null; }
+  stage.classList.remove('playing');
 }
 
 /* ================== 背景 ================== */
